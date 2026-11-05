@@ -21,3 +21,5 @@ A comprehensive, real-time health monitoring dashboard and portfolio viewer for 
 
 ## ⚠️ Disclaimer
 This is an unaffiliated community tool built for the Squeekchain ecosystem.
+
+## squeekchain-project: b47b2e81-1b19-405b-b08a-3de7a52e4f12
