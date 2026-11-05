@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Squeekchain Health Monitor</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ========== Top status bar ========== -->
+<header class="top-bar">
+    <div class="top-bar-left">
+        <span class="brand">🐹 Squeekchain Health Monitor</span>
+        <span class="network-badge">Sepolia</span>
+    </div>
+    <div class="top-bar-right">
+        <span class="status-item" id="apiHealth">
+            <span class="dot dot-gray" id="apiHealthDot"></span>
+            <span id="apiHealthText">Checking API…</span>
+        </span>
+        <span class="status-item">
+            <span class="label">Current Round</span>
+            <span id="currentRound">—</span>
+        </span>
+        <span class="status-item">
+            <span class="label">Height</span>
+            <span id="topBlockHeight">—</span>
+        </span>
+        <span class="status-item">
+            <span class="label">paused</span>
+            <span id="topPaused">—</span>
+        </span>
+        <span class="status-item status-refresh">
+            <span class="label">Last Refresh</span>
+            <span id="lastRefresh">—</span>
+        </span>
+    </div>
+</header>
+
+<main class="container">
+
+    <!-- ========== Block 1: Wheel Live ========== -->
+    <section class="card card-wheel" id="sectionStatus">
+        <div class="card-header">
+            <h2>🐹 Wheel Live</h2>
+            <span class="card-sub" id="statusFreshness">—</span>
+        </div>
+        <div class="card-body">
+            <div style="display: flex; gap: 20px; align-items: stretch; margin-bottom: 14px;">
+                <!-- 新增的虚拟仓鼠轮 -->
+                <div class="hamster-wheel-wrap">
+                    <div class="hamster-wheel" id="hamsterWheel">
+                        <span class="hamster-emoji">🐹</span>
+                    </div>
+                </div>
+                <!-- 原有的网格 -->
+                <div class="wheel-grid" style="flex: 1; margin-bottom: 0;">
+                    <div class="stat-tile">
+                        <div class="stat-label">RPM</div>
+                        <div class="stat-value" id="wheelRpm">—</div>
+                    </div>
+                    <div class="stat-tile">
+                        <div class="stat-label">Speed (mm/s)</div>
+                        <div class="stat-value" id="wheelSpeed">—</div>
+                    </div>
+                    <div class="stat-tile">
+                        <div class="stat-label">Today Distance (m)</div>
+                        <div class="stat-value" id="wheelDistance">—</div>
+                    </div>
+                    <div class="stat-tile">
+                        <div class="stat-label">Device Status</div>
+                        <div class="stat-value" id="wheelCoreStatus">—</div>
+                    </div>
+                    <div class="stat-tile">
+                        <div class="stat-label">Projected Height</div>
+                        <div class="stat-value" id="wheelProjectedHeight">—</div>
+                    </div>
+                    <div class="stat-tile">
+                        <div class="stat-label">Settlement Queue</div>
+                        <div class="stat-value" id="wheelQueueState">—</div>
+                    </div>
+                </div>
+            </div>
+            <div class="wheel-extra">
+                <span>Oracle: <b id="wheelOracleState">—</b></span>
+                <span>Queue Buffered: <b id="wheelQueueBuffered">—</b> round(s)</span>
+                <span>Provenance: <b id="wheelProvenance">—</b></span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Block 2: Core & Settlement Lag ========== -->
+    <section class="card card-core" id="sectionCore">
+        <div class="card-header">
+            <h2>⛓️ Core &amp; Settlement Lag</h2>
+            <span class="card-sub" id="coreSafeBlock">—</span>
+        </div>
+        <div class="card-body">
+            <div class="core-top">
+                <div class="core-lag" id="coreLagWrap">
+                    <div class="lag-number" id="coreLagRounds">—</div>
+                    <div class="lag-label" id="coreLagLabel">Rounds Behind</div>
+                </div>
+                <div class="core-info">
+                    <div class="info-row"><span>Settled Round</span><b id="coreSettledRound">—</b></div>
+                    <div class="info-row"><span>Current Round (chain clock)</span><b id="coreCurrentRound">—</b></div>
+                    <div class="info-row"><span>Completed Squeek Blocks</span><b id="coreBlockHeight">—</b></div>
+                    <div class="info-row"><span>Difficulty (work / 1000 blocks)</span><b id="coreDifficulty">—</b></div>
+                    <div class="info-row"><span>Cumulative Physical Work</span><b id="coreCumulativeWork">—</b></div>
+                </div>
+            </div>
+
+            <div class="progress-block">
+                <div class="progress-label">Next Block Progress <span id="coreBlockProgressPct">—</span></div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="coreBlockProgressBar" style="width:0%"></div>
+                </div>
+            </div>
+
+            <div class="core-meta">
+                <span>Genesis: <b id="coreGenesis">—</b></span>
+                <span>Round Duration: <b id="coreRoundDuration">—</b> s</span>
+                <span>Max Work / Round: <b id="coreMaxWork">—</b> work</span>
+                <span>Paused: <b id="corePaused">—</b></span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Block 3: Provisional Blocks ========== -->
+    <section class="card card-blocks" id="sectionBlocks">
+        <div class="card-header">
+            <h2>📦 Provisional Blocks</h2>
+            <span class="card-sub" id="blocksStatus">—</span>
+        </div>
+        <div class="card-body">
+            <div class="blocks-summary" id="blocksSummary">—</div>
+            <div class="blocks-list" id="blocksList">
+                <div class="empty">Loading…</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Block 4: SQK Economy ========== -->
+    <section class="card card-economy" id="sectionEconomy">
+        <div class="card-header">
+            <h2>💰 SQK Economy</h2>
+            <span class="card-sub" id="economyLifecycle">—</span>
+        </div>
+        <div class="card-body">
+            <div class="supply-block">
+                <div class="supply-numbers">
+                    <div class="supply-row">
+                        <span>Minted SQK</span>
+                        <b id="economyMinted">—</b>
+                    </div>
+                    <div class="supply-row">
+                        <span>Supply Cap</span>
+                        <b id="economyCap">—</b>
+                    </div>
+                    <div class="supply-row">
+                        <span>Remaining</span>
+                        <b id="economyRemaining">—</b>
+                    </div>
+                </div>
+                <div class="progress-label">Supply Progress <span id="economySupplyPct">—</span></div>
+                <div class="progress-track progress-track-lg">
+                    <div class="progress-fill progress-fill-gold" id="economySupplyBar" style="width:0%"></div>
+                </div>
+            </div>
+
+            <div class="nft-counts">
+                <div class="stat-tile"><div class="stat-label">Issued</div><div class="stat-value" id="economyNftIssued">—</div></div>
+                <div class="stat-tile"><div class="stat-label">Burned</div><div class="stat-value" id="economyNftBurned">—</div></div>
+                <div class="stat-tile"><div class="stat-label">Live</div><div class="stat-value" id="economyNftLive">—</div></div>
+                <div class="stat-tile"><div class="stat-label">Max Level</div><div class="stat-value" id="economyMaxLevel">—</div></div>
+            </div>
+
+            <div class="two-col">
+                <div class="levels-block">
+                    <h3>Levels</h3>
+                    <table class="levels-table">
+                        <thead>
+                            <tr><th>Level</th><th>Power</th><th>Cooldown (blocks)</th></tr>
+                        </thead>
+                        <tbody id="levelsTableBody">
+                            <tr><td colspan="3" class="empty">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pyramid-block">
+                    <h3>Merge Pyramid</h3>
+                    <div class="pyramid" id="pyramidChart">
+                        <div class="empty">Loading…</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Block 5: Staking ========== -->
+    <section class="card card-staking" id="sectionStaking">
+        <div class="card-header">
+            <h2>🏦 Staking</h2>
+            <span class="card-sub" id="stakingStatus">—</span>
+        </div>
+        <div class="card-body">
+            <div class="staking-grid">
+                <div class="stat-tile">
+                    <div class="stat-label">Total Staked</div>
+                    <div class="stat-value" id="stakingTotalStaked">—</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-label">Fresh Principal</div>
+                    <div class="stat-value" id="stakingFreshPrincipal">—</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-label">Total NFT Power</div>
+                    <div class="stat-value" id="stakingNftPower">—</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-label">Total SQK Power</div>
+                    <div class="stat-value" id="stakingSqkPower">—</div>
+                </div>
+            </div>
+
+            <div class="staking-rewards">
+                <div class="supply-numbers">
+                    <div class="supply-row">
+                        <span>Rewards Funded</span>
+                        <b id="stakingRewardsFunded">—</b>
+                    </div>
+                    <div class="supply-row">
+                        <span>Rewards Paid</span>
+                        <b id="stakingRewardsPaid">—</b>
+                    </div>
+                    <div class="supply-row">
+                        <span>Rewards Remaining</span>
+                        <b id="stakingRewardsRemaining">—</b>
+                    </div>
+                </div>
+                <div class="progress-label">Rewards Paid Progress <span id="stakingPaidPct">—</span></div>
+                <div class="progress-track progress-track-lg">
+                    <div class="progress-fill progress-fill-gold" id="stakingPaidBar" style="width:0%"></div>
+                </div>
+            </div>
+
+            <!-- Yield Estimator -->
+            <div style="background: var(--bg-tile); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 14px;">
+                <div style="font-size: 13px; font-weight: bold; margin-bottom: 10px; color: var(--gold);">💡 Yield Estimator</div>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="font-size: 12px; color: var(--text-secondary);">If you add</span>
+                    <input type="number" id="whatIfPower" value="1000" step="100" min="1" oninput="window.updateYieldEstimate(this.value)" style="width: 100px; padding: 6px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px;">
+                    <span style="font-size: 12px; color: var(--text-secondary);">active power, you earn ~</span>
+                    <b id="whatIfResult" style="font-size: 14px; color: var(--green);">—</b>
+                    <span style="font-size: 12px; color: var(--text-secondary);">SQK/day</span>
+                </div>
+            </div>
+
+            <div class="two-col">
+                <div class="staking-params">
+                    <h3>Parameters</h3>
+                    <div class="info-row"><span>SQK per Power</span><b id="stakingSqkPerPower">—</b></div>
+                    <div class="info-row"><span>Reference Power</span><b id="stakingReferencePower">—</b></div>
+                    <div class="info-row"><span>Fresh Until Round</span><b id="stakingFreshUntilRound">—</b></div>
+                    <div class="info-row"><span>Stream Rate</span><b id="stakingStreamRate">—</b></div>
+                    <div class="info-row"><span>Stream Ends At</span><b id="stakingStreamEnds">—</b></div>
+                </div>
+                <div class="staking-exit">
+                    <h3>Exit Policy</h3>
+                    <div class="info-row"><span>Min Fee</span><b id="stakingExitMin">—</b></div>
+                    <div class="info-row"><span>Max Fee</span><b id="stakingExitMax">—</b></div>
+                    <div class="info-row"><span>Saturation</span><b id="stakingExitSat">—</b></div>
+                    <div class="info-row"><span>Window</span><b id="stakingExitWindow">—</b></div>
+                    <div class="info-row"><span>Pressure Floor</span><b id="stakingExitFloor">—</b></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Block 5: Settlements ========== -->
+    <section class="card card-settlements" id="sectionSettlements">
+        <div class="card-header">
+            <h2>📜 Settlements (24h)</h2>
+            <span class="card-sub" id="settlementsSource">—</span>
+        </div>
+        <div class="card-body">
+            <div class="settlements-summary" id="settlementsSummary">—</div>
+            <div class="settlements-list" id="settlementsList">
+                <div class="empty">Loading…</div>
+            </div>
+            <div class="checkpoints-block">
+                <h3>Checkpoints</h3>
+                <div class="checkpoints-list" id="checkpointsList">
+                    <div class="empty">Loading…</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Block 6: Event Feed ========== -->
+    <section class="card card-events" id="sectionEvents">
+        <div class="card-header">
+            <h2>📡 Event Feed</h2>
+            <div class="card-header-actions">
+                <select id="eventsCategory" class="select-inline">
+                    <option value="all">All</option>
+                    <option value="protocol">Protocol</option>
+                    <option value="players">Players</option>
+                    <option value="measurement">Measurement</option>
+                </select>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="events-list" id="eventsList">
+                <div class="empty">Loading…</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Block 7: Measurement Stats ========== -->
+    <section class="card card-stats" id="sectionStats">
+        <div class="card-header">
+            <h2>📊 Measurement Stats</h2>
+            <div class="card-header-actions">
+                <button class="btn btn-sm" data-stats-range="7d">7 days</button>
+                <button class="btn btn-sm" data-stats-range="30d">30 days</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="stats-hint" id="statsHint">Click "7 days" or "30 days" to load stats</div>
+            <div class="stats-charts" id="statsCharts" style="display:none;">
+                <div class="chart-block">
+                    <h3>Daily Active Work</h3>
+                    <canvas id="chartActivity"></canvas>
+                </div>
+                <div class="chart-block">
+                    <h3>Daily Distance (mm)</h3>
+                    <canvas id="chartDistance"></canvas>
+                </div>
+                <div class="stats-summary" id="statsSummary"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== Query: Account / Activity / Squeek Detail ========== -->
+    <section class="card card-query" id="sectionQuery">
+        <div class="card-header">
+            <h2>🔍 Query</h2>
+        </div>
+        <div class="card-body">
+            <div class="query-tabs">
+                <button class="query-tab active" data-query-tab="account">Account</button>
+                <button class="query-tab" data-query-tab="activity">Activity</button>
+                <button class="query-tab" data-query-tab="squeek">Squeek Detail</button>
+            </div>
+
+            <!-- Account -->
+            <div class="query-panel" id="queryPanelAccount">
+                <div class="query-input-row">
+                    <input type="text" id="accountAddressInput" placeholder="Enter Sepolia address 0x…" class="input-text">
+                    <button class="btn btn-primary" id="accountQueryBtn">Query Account</button>
+                </div>
+                <div class="query-result" id="accountResult">
+                    <div class="empty">Enter an address and click Query</div>
+                </div>
+            </div>
+
+            <!-- Activity -->
+            <div class="query-panel" id="queryPanelActivity" style="display:none;">
+                <div class="query-input-row">
+                    <input type="text" id="activityAddressInput" placeholder="Enter Sepolia address 0x…" class="input-text">
+                    <button class="btn btn-primary" id="activityQueryBtn">Query Activity</button>
+                </div>
+                <div class="query-result" id="activityResult">
+                    <div class="empty">Enter an address and click Query</div>
+                </div>
+            </div>
+
+            <!-- Squeek Detail -->
+            <div class="query-panel" id="queryPanelSqueek" style="display:none;">
+                <div class="query-input-row">
+                    <input type="number" id="squeekTokenIdInput" placeholder="Enter tokenId (1–9999)" class="input-text" min="1" max="9999">
+                    <button class="btn btn-primary" id="squeekQueryBtn">Query Squeek</button>
+                </div>
+                <div class="query-result" id="squeekResult">
+                    <div class="empty">Enter a tokenId and click Query</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<footer class="site-footer">
+    <span>Data source: <a href="https://api.squeekchain.com/v1" target="_blank" rel="noopener">api.squeekchain.com</a> · 12 blocks behind chain tip</span>
+    <span class="footer-dot">·</span>
+    <span>Explorer: <a href="https://eth-sepolia.blockscout.com" target="_blank" rel="noopener">Blockscout Sepolia</a></span>
+    <span class="footer-dot">·</span>
+    <span class="footer-note">Unaffiliated community tool</span>
+</footer>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
